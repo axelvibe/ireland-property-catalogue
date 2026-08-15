@@ -531,7 +531,7 @@ function extractDeposit(text){
   return null;
 }
 function extractRent(text){
-  let m = text.match(/€\s*([\d][\d,.]*)\s*(?:k|thousand)?\s*(?:per\s*)?(?:month|mth|pm|pcm|/mo)\b/i);
+  let m = text.match(/€\s*([\d][\d,.]*)\s*(?:k|thousand)?\s*(?:per\s*)?(?:month|mth|pm|pcm|\/mo)\b/i);
   if (m) return parseMoney(m[1], m[2]);
   m = text.match(/(rent|renting|letting)\w*[^€\d]*€?\s*([\d][\d,.]*)\s*(k|thousand)?/i);
   if (m) return parseMoney(m[2], m[3]);
