@@ -188,6 +188,8 @@ footer b{color:var(--green)}
       <button class="chip" data-paste="2 bed apartment, Cork City, asking €295,000">2-bed flat, Cork</button>
       <button class="chip" data-paste="4 bed detached, Kildare, asking €425,000">4-bed detached, Kildare</button>
       <button class="chip" data-paste="What's the market like in Dublin right now?">Market in Dublin</button>
+      <button class="chip" data-paste="2 bed flat in Dublin 8, rent €2,100 pcm">Rent check, Dublin 8</button>
+      <button class="chip" data-paste="Can I afford to buy in Galway with income €95,000 and deposit €60,000?">Can I afford Galway?</button>
     </div>
     <div id="inputRow">
       <input id="input" type="text" placeholder='Paste a listing… e.g. "3-bed semi-d, Waterford, asking €310,000"' autocomplete="off" aria-label="Listing or question">
@@ -293,6 +295,158 @@ const TYPES = [
 const WORD_NUMS = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10};
 
 /* =====================================================================
+   LIVE CSO RPPI (HPM09) — official year-on-year % change by NUTS3 region,
+   refreshed from ws.cso.ie when the site is online. The embedded trend
+   values above are the offline fallback.
+   ===================================================================== */
+const CSO_URL = "https://ws.cso.ie/public/api.restful/PxStat.Data.Cube_API.ReadDataset/HPM09/JSON-stat/2.0/en";
+const CSO_REGIONS = { /* county -> HPM09 C02803V03373 code */
+  "Dublin": "06", "Cork": "19", "Kerry": "19",
+  "Cavan": "21", "Donegal": "21", "Leitrim": "21", "Monaghan": "21", "Sligo": "21",
+  "Laois": "14", "Longford": "14", "Offaly": "14", "Westmeath": "14",
+  "Galway": "15", "Mayo": "15", "Roscommon": "15",
+  "Kildare": "22", "Louth": "22", "Meath": "22", "Wicklow": "22",
+  "Clare": "23", "Limerick": "23", "Tipperary": "23",
+  "Carlow": "24", "Kilkenny": "24", "Waterford": "24", "Wexford": "24"
+};
+let CSO_LIVE = null; /* { month:"202605", regions:{code:{yoy,index}} } */
+const CSO_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function csoMonthLabel(m){
+  if (!m || m.length !== 6) return m || "";
+  const mo = CSO_MONTHS[parseInt(m.slice(4),10)-1] || m;
+  return mo + " " + m.slice(0,4);
+}
+function trendFor(county){
+  const code = CSO_REGIONS[county];
+  if (CSO_LIVE && code && CSO_LIVE.regions[code]){
+    return { yoy: CSO_LIVE.regions[code].yoy, live: true };
+  }
+  return { yoy: COUNTIES[county] ? COUNTIES[county].trend : 0, live: false };
+}
+async function refreshCSO(){
+  try{
+    const res = await fetch(CSO_URL, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const d = await res.json();
+    const dims = d.dimension || {};
+    const keysOf = o => Array.isArray(o) ? o : Object.keys(o);
+    const stats   = keysOf(dims.STATISTIC?.category?.index || {});
+    const months  = keysOf(dims["TLIST(M1)"]?.category?.index || {});
+    const regions = keysOf(dims["C02803V03373"]?.category?.index || {});
+    const sIdx = stats.indexOf("HPM09C01");
+    const sYoY = stats.indexOf("HPM09C04");
+    if (sIdx < 0 || sYoY < 0 || !months.length || !regions.length) throw new Error("shape");
+    const vals = d.value, M = months.length, R = regions.length;
+    const pos = (s,m,r) => vals[s*M*R + m*R + r];
+    const out = {};
+    for (let r=0; r<R; r++){
+      out[regions[r]] = { yoy: pos(sYoY, M-1, r), index: pos(sIdx, M-1, r) };
+    }
+    CSO_LIVE = { month: months[M-1], regions: out, updated: new Date() };
+  }catch(e){ CSO_LIVE = null; }
+}
+const fmtTrend = (t, live) => (t>=0?"+":"") + t.toFixed(1) + "%" + (live ? " · live CSO RPPI" : "");
+
+/* =====================================================================
+   TYPE & BED PRICE BANDS — multipliers on the county typical price.
+   A "3-bed semi-detached" is the baseline; other shapes scale from
+   CSO/PSRA mix-adjusted patterns.
+   ===================================================================== */
+const TYPE_FACTORS = {
+  "Detached": 1.18, "Semi-detached": 1.02, "Terraced / townhouse": 0.86,
+  "Apartment / flat": 0.82, "Bungalow": 1.06, "Studio": 0.58, "Maisonette": 0.78
+};
+const BED_FACTORS = { 1:0.70, 2:0.88, 3:1.00, 4:1.20, 5:1.42, 6:1.60 };
+function shapeFactor(type, beds){
+  let f = 1;
+  if (type && TYPE_FACTORS[type]) f *= TYPE_FACTORS[type];
+  if (beds && BED_FACTORS[beds]) f *= BED_FACTORS[beds];
+  return f;
+}
+function shapeTypical(base, type, beds){
+  return Math.round(base * shapeFactor(type, beds));
+}
+
+/* =====================================================================
+   DUBLIN POSTAL-AREA REFERENCES — indicative typical prices by postal
+   district (anchored to CSO RPPI Dublin LAs + PSRA mixes), and RTB
+   average rents by district (2025 RTB Rent Index).
+   ===================================================================== */
+const DUBLIN_POSTAL_SALE = {
+  "D1": 375000, "D2": 525000, "D3": 460000, "D4": 850000, "D5": 445000,
+  "D6": 720000, "D6W": 620000, "D7": 485000, "D8": 430000, "D9": 520000,
+  "D10": 355000, "D11": 385000, "D12": 450000, "D13": 515000, "D14": 610000,
+  "D15": 465000, "D16": 575000, "D17": 385000, "D18": 620000, "D20": 420000,
+  "D22": 395000, "D24": 405000
+};
+const DUBLIN_POSTAL_RENT = {
+  "D1": 2065, "D2": 2247, "D3": 1889, "D4": 2508, "D5": 2282,
+  "D6": 1976, "D6W": 2324, "D7": 1926, "D8": 1873, "D9": 2054,
+  "D10": 1802, "D11": 1934, "D12": 2081, "D13": 2111, "D14": 2802,
+  "D15": 1985, "D16": 2269, "D17": 1828, "D18": 2509, "D20": 1976,
+  "D22": 1862, "D24": 2047
+};
+function extractDublinPostal(text){
+  const m = text.match(/\bDublin\s?(6\s?W|6w|\d{1,2})\b|\bD\s?(6\s?W|6w|\d{1,2})\s?\b/i);
+  if (m){
+    const raw = (m[1] || m[2] || "").toUpperCase().replace(/\s+/g,"");
+    const key = raw === "6W" ? "D6W" : "D" + parseInt(raw,10);
+    if (DUBLIN_POSTAL_SALE[key]) return key;
+  }
+  return null;
+}
+
+/* =====================================================================
+   RTB COUNTY RENTS — average monthly rent by county (RTB Rent Index,
+   annual 2025). Used by rental mode.
+   ===================================================================== */
+const RTB_RENTS = {
+  "Carlow": 1316, "Cavan": 1095, "Clare": 1170, "Cork": 1542, "Donegal": 977,
+  "Dublin": 2159, "Galway": 1637, "Kerry": 1182, "Kildare": 1701,
+  "Kilkenny": 1207, "Laois": 1235, "Leitrim": 992, "Limerick": 1619,
+  "Longford": 1120, "Louth": 1433, "Mayo": 1117, "Meath": 1542,
+  "Monaghan": 1028, "Offaly": 1198, "Roscommon": 1092, "Sligo": 1156,
+  "Tipperary": 1078, "Waterford": 1247, "Westmeath": 1257, "Wexford": 1179,
+  "Wicklow": 1730
+};
+
+/* =====================================================================
+   AFFORDABILITY ENGINE — stamp duty, mortgage estimate, 4x income rule.
+   ===================================================================== */
+function stampDuty(price){
+  const over = Math.max(0, price - 1000000);
+  return Math.round(1000000 * 0.01 + over * 0.02);
+}
+function mortgagePayment(price, deposit, years, rate){
+  const p = Math.max(0, price - deposit);
+  const r = rate / 100 / 12, n = years * 12;
+  if (p <= 0) return 0;
+  if (r === 0) return p / n;
+  return p * r / (1 - Math.pow(1 + r, -n));
+}
+function affordabilityCard(f){
+  const deposit = f.deposit || Math.round(f.typical * 0.1);
+  const income = f.income;
+  const price = f.asking || f.typical;
+  const st = stampDuty(price);
+  const pay = mortgagePayment(price, deposit, 30, 3.9);
+  const max4x = income ? income * 4 : null;
+  return `
+  <div class="card">
+    <div class="card-head"><span>💶 Affordability check</span><small>${esc(f.county||"Ireland")} · 30-yr fix @ ~3.9%</small></div>
+    <div class="card-body">
+      <div class="cmp"><span class="lbl">Target price</span><span class="val" style="color:var(--green)">${fmt(price)}</span></div>
+      ${income?`<div class="cmp"><span class="lbl">Gross household income</span><span class="val">${fmt(income)}/yr</span></div>`:""}
+      <div class="cmp"><span class="lbl">Deposit</span><span class="val">${fmt(deposit)}</span></div>
+      <div class="cmp"><span class="lbl">Monthly mortgage</span><span class="val">${fmt(pay)}</span></div>
+      <div class="cmp"><span class="lbl">Stamp duty</span><span class="val">${fmt(st)}</span></div>
+      ${max4x!==null?`<div class="cmp"><span class="lbl">4x income ceiling</span><span class="val" style="color:${max4x>=price?"var(--green)":"var(--above)"}">${fmt(max4x)}</span></div>`:""}
+      <div class="src">Stamp duty: 1% up to €1m, 2% above. Central Bank allows most buyers up to 4x gross income (first-time buyers up to 4.5x). Get a lender's AIP before you bid.</div>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
    CHAT UI
    ===================================================================== */
 const chat = document.getElementById("chat");
@@ -364,6 +518,28 @@ function extractCounty(text){
   }
   return null;
 }
+function extractIncome(text){
+  let m = text.match(/(income|salary|earn(?:ing|s)?|take[\s-]?home)\w*[^€\d]*€?\s*([\d][\d,.]*)\s*(k|thousand)?/i);
+  if (m) return parseMoney(m[2], m[3]);
+  m = text.match(/€?\s*([\d][\d,.]*)\s*(k|thousand)?\s*(?:per\s*)?(?:year|annum|annual)\b/i);
+  if (m) return parseMoney(m[1], m[2]);
+  return null;
+}
+function extractDeposit(text){
+  const m = text.match(/(deposit|saved|savings|cash|down[\s-]?payment)\w*[^€\d]*€?\s*([\d][\d,.]*)\s*(k|thousand)?/i);
+  if (m) return parseMoney(m[2], m[3]);
+  return null;
+}
+function extractRent(text){
+  let m = text.match(/€\s*([\d][\d,.]*)\s*(?:k|thousand)?\s*(?:per\s*)?(?:month|mth|pm|pcm|/mo)\b/i);
+  if (m) return parseMoney(m[1], m[2]);
+  m = text.match(/(rent|renting|letting)\w*[^€\d]*€?\s*([\d][\d,.]*)\s*(k|thousand)?/i);
+  if (m) return parseMoney(m[2], m[3]);
+  return null;
+}
+function isRentalQuery(text){
+  return /rent(?:al|ing|s)?|letting|landlord|lease|pcm\b|per month|tenant/i.test(text);
+}
 function verdictFor(asking, typical){
   const ratio = asking/typical;
   if (ratio <= 0.88) return { key:"below",  label:"BELOW MARKET",       diff:(ratio-1)*100 };
@@ -388,24 +564,45 @@ function analysisCard(f){
       <div class="diffcap"><span>Below market</span><span>In line</span><span>Above market</span></div>
       <div class="facts">
         <div class="fact"><div class="k">Property</div><div class="v">${esc(f.beds?f.beds+"-bed ":"")}${esc(f.type||"n/a")}</div></div>
-        <div class="fact"><div class="k">County trend</div><div class="v">${f.trend>=0?"+":""}${f.trend}% YoY</div></div>
+        <div class="fact"><div class="k">County trend</div><div class="v">${fmtTrend(f.trend, f.trendLive)}${f.trendLive?` (${csoMonthLabel(CSO_LIVE.month)})`:""} YoY</div></div>
         <div class="fact"><div class="k">Area</div><div class="v">${esc(f.county)}</div></div>
         <div class="fact"><div class="k">Assessment</div><div class="v" style="color:${f.verdict.key==="above"?"var(--above)":f.verdict.key==="below"?"var(--below)":"var(--inline)"}">${f.diff>0?"Pricey for the area":f.diff<-12?"Genuine value":"Fairly priced"}</div></div>
       </div>
-      <div class="src">Reference: indicative ${f.county} typical price from CSO PxStat RPPI / PSRA public data. Always confirm against the PSRA Property Price Register for the exact address.</div>
+      <div class="src">Reference: ${f.typicalRef} typical price from CSO PxStat RPPI / PSRA public data. Always confirm against the PSRA Property Price Register for the exact address.</div>
     </div>
   </div>`;
 }
 
 function countyCard(county){
   const c = COUNTIES[county];
+  const t = trendFor(county);
   return `
   <div class="card">
     <div class="card-head"><span>🏘 Market snapshot · ${county}</span></div>
     <div class="card-body">
       <div class="cmp"><span class="lbl">Typical price</span><span class="val" style="color:var(--green)">${fmt(c.typical)}</span></div>
-      <div class="cmp"><span class="lbl">Year-on-year trend</span><span class="val" style="color:${c.trend>=0?"var(--above)":"var(--below)"}">${c.trend>=0?"+":""}${c.trend}%</span></div>
-      <div class="src">Reference: indicative ${county} typical price from CSO PxStat RPPI / PSRA public data.</div>
+      <div class="cmp"><span class="lbl">Year-on-year trend</span><span class="val" style="color:${t.yoy>=0?"var(--above)":"var(--below)"}">${fmtTrend(t.yoy, t.live)}${t.live?` (${csoMonthLabel(CSO_LIVE.month)})`:""}</span></div>
+      <div class="cmp"><span class="lbl">Average rent</span><span class="val">${fmt(RTB_RENTS[county])}/mo</span></div>
+      <div class="src">Reference: indicative ${county} typical price from CSO PxStat RPPI / PSRA public data. Rent: RTB Rent Index 2025. Trend refreshes live from CSO when online.</div>
+    </div>
+  </div>`;
+}
+
+function rentalCard(f, rtbRef){
+  const place = f.postal ? `Dublin ${f.postal}` : f.county;
+  const rel = f.rent/rtbRef;
+  const verdict = rel > 1.1 ? { key:"above",  label:"ABOVE RTB AVERAGE",    diff:(rel-1)*100 }
+                : rel < 0.9 ? { key:"below",  label:"BELOW RTB AVERAGE",    diff:(rel-1)*100 }
+                            : { key:"inline", label:"IN LINE WITH RTB AVERAGE", diff:(rel-1)*100 };
+  return `
+  <div class="card">
+    <div class="card-head"><span>🏢 Rent reality check</span><small>${esc(place)} · RTB Rent Index 2025</small></div>
+    <div class="card-body">
+      <div class="cmp"><span class="lbl">Advertised rent</span><span class="val" style="color:var(--green)">${fmt(f.rent)}/mo</span></div>
+      <div class="cmp"><span class="lbl">RTB average (${place})</span><span class="val">${fmt(rtbRef)}/mo</span></div>
+      <div class="cmp"><span class="lbl">Difference</span><span class="val" style="color:${verdict.diff>0?"var(--above)":"var(--below)"}">${verdict.diff>0?"+":""}${verdict.diff.toFixed(1)}%</span></div>
+      <div class="verdict ${verdict.key}">${verdict.label}</div>
+      <div class="src">RTB Rent Index average monthly rent (2025). Rent Pressure Zones cap increases at CPI-linked rates; every tenancy must be registered with the RTB.</div>
     </div>
   </div>`;
 }
@@ -415,10 +612,16 @@ function buildFacts(text){
   const county = extractCounty(text);
   const beds = extractBeds(text);
   const type = extractType(text);
-  return { asking, county, beds, type };
+  const income = extractIncome(text);
+  const deposit = extractDeposit(text);
+  const rent = extractRent(text);
+  const postal = county === "Dublin" ? extractDublinPostal(text) : null;
+  const rental = isRentalQuery(text);
+  return { asking, county, beds, type, income, deposit, rent, postal, rental };
 }
 
 function localAssessment(f){
+  if (f.rent && f.rtbRef) return `In ${f.county}, the RTB average monthly rent is ${fmt(f.rtbRef)}. At ${fmt(f.rent)}/month this is ${f.rent>f.rtbRef*1.1?"above":f.rent<f.rtbRef*0.9?"below":"in line with"} that average. Remember: rents in Rent Pressure Zones can't be hiked above CPI-linked limits, and every tenancy should be registered with the RTB.`;
   if (!f.county) return "I couldn't pin down a county or an asking price in that message. Try something like: “3-bed semi-d, Waterford, asking €310,000” — or ask me about any county’s market.";
   if (!f.asking) return `I can see this is in ${f.county}, but I need the asking price to compare it against the market. What's the asking price?`;
   const v = f.verdict;
@@ -478,21 +681,72 @@ async function handle(text){
   const geoCtx = f.county ? await geocode(f.county).catch(()=>null) : null;
   const geoNote = geoCtx ? `\n[Geocoding: ${geoCtx.formatted} (${geoCtx.lat.toFixed(3)}, ${geoCtx.lng.toFixed(3)})]` : "";
 
+  /* Case 0 — rental mode: a rent figure and a place */
+  if (f.rental && f.rent && f.county){
+    const rtbRef = (f.postal && DUBLIN_POSTAL_RENT[f.postal]) ? DUBLIN_POSTAL_RENT[f.postal] : RTB_RENTS[f.county];
+    addCard(rentalCard(f, rtbRef));
+    const ty = addTyping();
+    const prompt = [
+      `STRUCTURED FACTS (computed locally, authoritative for this reply):`,
+      `- Monthly rent: ${fmt(f.rent)}`,
+      `- Area: ${f.postal ? "Dublin "+f.postal : f.county}`,
+      `- RTB average rent (2025 Rent Index): ${fmt(rtbRef)}`,
+      geoNote,
+      `\nUser: "${text}"`,
+      `\nGive a short friendly take (under 100 words): is this rent above or below the RTB average, and one practical note (RPZ rent pressure zones cap increases; RTB tenancy registration).`
+    ].join("\n");
+    let prose;
+    try{ prose = await callAI(AI_SYSTEM, prompt); }
+    catch(e){ prose = localAssessment({county:f.county, rent:f.rent, rtbRef}); }
+    ty.replaceWith(botBubble(prose));
+    scroll();
+    return;
+  }
+
+  /* Case 1b — affordability: income or deposit mentioned */
+  if ((f.income || f.deposit) && /afford|budget|can i|buy|mortgage/i.test(text)){
+    const c = f.county ? COUNTIES[f.county] : null;
+    f.typical = c ? shapeTypical(c.typical, f.type, f.beds) : f.asking || 0;
+    addCard(affordabilityCard(f));
+    const ty = addTyping();
+    const prompt = [
+      `STRUCTURED FACTS (computed locally, authoritative for this reply):`,
+      `- ${f.income?`Gross income: ${fmt(f.income)}/yr`:""}${f.deposit?` · Deposit: ${fmt(f.deposit)}`:""}`,
+      `- County: ${f.county||"unspecified"}`,
+      `- Typical price: ${f.typical?fmt(f.typical):"n/a"}`,
+      `- 4x income ceiling: ${f.income?fmt(f.income*4):"n/a"}`,
+      geoNote,
+      `\nUser: "${text}"`,
+      `\nAnswer warmly (under 110 words): what price range this household can realistically afford in Ireland today (deposit, mortgage, stamp duty), with a couple of practical next steps.`
+    ].join("\n");
+    let prose;
+    try{ prose = await callAI(AI_SYSTEM, prompt); }
+    catch(e){ prose = `Rough guide: most lenders will advance up to 4x your gross income (first-time buyers up to 4.5x). With ${fmt(f.income||0)}/yr that points to a ceiling around ${fmt(f.income?f.income*4:0)}. Stamp duty is 1% up to €1m then 2%. A lender's approval-in-principle is the real test.`; }
+    ty.replaceWith(botBubble(prose));
+    scroll();
+    return;
+  }
+
   /* Case 1 — a full listing with asking price + county */
   if (f.asking && f.county){
     const c = COUNTIES[f.county];
-    f.typical = c.typical; f.trend = c.trend;
+    const t = trendFor(f.county);
+    const baseTypical = f.postal && DUBLIN_POSTAL_SALE[f.postal] ? DUBLIN_POSTAL_SALE[f.postal] : c.typical;
+    f.typical = shapeTypical(baseTypical, f.type, f.beds);
+    f.trend = t.yoy; f.trendLive = t.live;
+    f.typicalRef = f.postal ? `Dublin ${f.postal}` : (t.live ? `${f.county} (region-based)` : f.county);
     f.verdict = verdictFor(f.asking, f.typical);
+    f.diff = f.verdict.diff;
     addCard(analysisCard(f));
     const ty = addTyping();
     const prompt = [
       `STRUCTURED FACTS (computed locally, authoritative for this reply):`,
       `- Asking price: ${fmt(f.asking)}`,
-      `- County: ${f.county}`,
+      `- County: ${f.county}${f.postal?`, Dublin ${f.postal}`:""}`,
       `- Beds: ${f.beds||"unknown"} · Type: ${f.type||"unknown"}`,
-      `- Typical ${f.county} price (CSO/PSRA reference): ${fmt(f.typical)}`,
+      `- Typical price for this shape in ${f.typicalRef} (CSO/PSRA reference): ${fmt(f.typical)}`,
       `- Difference: ${f.verdict.diff>=0?"+":""}${f.verdict.diff.toFixed(1)}% → verdict: ${f.verdict.label}`,
-      `- ${f.county} YoY trend: ${f.trend>=0?"+":""}${f.trend}%`,
+      `- ${f.county} YoY trend: ${f.trend>=0?"+":""}${f.trend.toFixed(1)}%${f.trendLive?` (live CSO RPPI, ${csoMonthLabel(CSO_LIVE.month)})`:""}`,
       geoNote,
       `\nUser listing: "${text}"`,
       `\nWrite a short friendly assessment (under 120 words) explaining the verdict in plain English and giving 2-3 practical takeaways.`
@@ -507,18 +761,25 @@ async function handle(text){
 
   /* Case 2 — a county-only question (snapshot) */
   if (f.county){
+    if (f.rental && RTB_RENTS[f.county]){
+      const rtbRef = f.postal && DUBLIN_POSTAL_RENT[f.postal] ? DUBLIN_POSTAL_RENT[f.postal] : RTB_RENTS[f.county];
+      const place = f.postal ? `Dublin ${f.postal}` : f.county;
+      addBot(`🏘 Average rent in ${place}: ${fmt(rtbRef)}/month (RTB Rent Index, 2025). ${f.rent?`Your figure of ${fmt(f.rent)} is ${f.rent>rtbRef*1.1?"above":f.rent<rtbRef*0.9?"below":"in line with"} the local average.`:""} Rents in Rent Pressure Zones can only rise by CPI + local inflation rules, and every tenancy should be registered with the RTB.`);
+      return;
+    }
     addCard(countyCard(f.county));
     const ty = addTyping();
     const c = COUNTIES[f.county];
+    const t = trendFor(f.county);
     const prompt = [
       `User asks about the ${f.county} property market.`,
-      `Official reference: typical price ${fmt(c.typical)}, YoY trend ${c.trend>=0?"+":""}${c.trend}%.`,
+      `Official reference: typical price ${fmt(c.typical)}, YoY trend ${t.yoy>=0?"+":""}${t.yoy.toFixed(1)}%${t.live?` (live CSO RPPI, ${csoMonthLabel(CSO_LIVE.month)})`:""}.`,
       geoNote,
       `\nAnswer warmly (under 100 words): what does that mean for a buyer, and point them to the PSRA register for exact sales.`
     ].join("\n");
     let prose;
     try{ prose = await callAI(AI_SYSTEM, prompt); }
-    catch(e){ prose = `${f.county}’s typical price is around ${fmt(c.typical)}, trending ${c.trend>=0?"up":""} ${Math.abs(c.trend)}% year-on-year. Check the PSRA Property Price Register for exact recent sales in the area you're eyeing.`; }
+    catch(e){ prose = `${f.county}’s typical price is around ${fmt(c.typical)}, trending ${t.yoy>=0?"up":""} ${Math.abs(t.yoy).toFixed(0)}% year-on-year. Check the PSRA Property Price Register for exact recent sales in the area you're eyeing.`; }
     ty.replaceWith(botBubble(prose));
     scroll();
     return;
@@ -561,6 +822,7 @@ document.querySelectorAll(".chip").forEach(ch=>{
 
 /* ---------- welcome ---------- */
 window.addEventListener("DOMContentLoaded", ()=>{
+  refreshCSO();
   addBot("Welcome to the 🇮🇪 Ireland Property Catalogue. I'm Eabha — your asking-price reality check.\n\nPaste any live listing (from your Telegram channel or anywhere else) and I'll tell you whether the asking price is in line with, above, or below the real market — backed by official CSO and PSRA data.\n\nTry one of the examples below, or just ask: “What's the market like in Galway?”");
 });
 </script>

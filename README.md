@@ -9,8 +9,23 @@
 ## What it does
 
 1. Paste a listing — e.g. `3-bed semi-d, Waterford, asking €310,000` (straight from your Telegram channel) — or just ask *"What's the market like in Dublin?"*
-2. The engine extracts price, beds, property type and county, then compares the asking price against the official reference price for that county.
+2. The engine extracts price, beds, property type and county, then compares the asking price against the official reference price for that county (adjusted for property shape — detached, apartment, bed count — and Dublin postal district).
 3. You get a verdict card (below / in line / above market, with the numbers shown) plus a plain-English assessment from the AI advisor **Eabha**.
+4. Bonus modes:
+   - **Rent check** — *"2-bed flat in Dublin 8, rent €2,100 pcm"* → compares against the RTB Rent Index average for the area.
+   - **Affordability** — *"Can I afford Galway with income €95k and a €60k deposit?"* → stamp duty, mortgage estimate, 4× income ceiling.
+
+## Live data (no scraping required)
+
+The engine refreshes official figures straight from the CSO/RTB/PSRA public APIs:
+
+| Source | Dataset | What it powers |
+|---|---|---|
+| CSO PxStat | HPM09 RPPI (JSON-stat) | **Live** year-on-year trend per NUTS3 region (fallback: embedded) |
+| RTB / CSO | RIA02 Rent Index (JSON-stat) | Average monthly rent per county & Dublin district |
+| PSRA | Per-county PPR CSVs | **Actual recent sold prices** for negotiating evidence (Telegram bridge) |
+
+The web app fetches HPM09 live (it's ~110 KB and the CSO API sends the right CORS headers for GitHub Pages); the Telegram bridge additionally pulls actual PSRA sales from the official per-county CSV.
 
 ## Why official data
 
@@ -59,7 +74,12 @@ It listens to your channel, and when someone posts a listing it replies with the
 ## Roadmap
 
 - [x] Single-file chatbot deployed to GitHub Pages
+- [x] Type & bed price bands (detached/apartment/bungalow/studio + bed-count multipliers)
+- [x] Dublin postal-area references (per-district sale & rent reference figures)
+- [x] Live CSO RPPI trend refresh (HPM09 via PxStat API, CORS-enabled)
+- [x] PSRA actual-sale matching (Telegram bridge reads official per-county PPR CSVs)
+- [x] Affordability engine (stamp duty, mortgage estimate, 4× income rule)
+- [x] Rental mode (RTB Rent Index county & Dublin-district averages)
 - [ ] Restrict Gemini + Geocoding keys to this site's referrer (AI Studio / Cloud Console)
-- [ ] Fresh CSO/PSRA figures monthly (Researcher)
 - [ ] Live Telegram bot hosting
 - [ ] Auctioneer "official-data partner" pilot

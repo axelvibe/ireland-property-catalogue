@@ -37,11 +37,18 @@
 
 | Source | What it gives | Key | Cost | Reliability |
 |---|---|---|---|---|
-| CSO PxStat RPPI | National + regional price index, YoY trends | None | Free | Official |
-| PSRA Property Price Register | Actual sale prices per address/area | None | Free | Official, statutory |
+| CSO PxStat RPPI (HPM09) | National + NUTS3 regional price index, YoY % change, updated monthly. API: `ws.cso.ie/.../ReadDataset/HPM09/JSON-stat/2.0/en` (CORS-enabled, ~110 KB) | None | Free | Official, live |
+| RTB Rent Index (RIA02) | Average monthly rent by county, town & Dublin district (bedrooms × property type). API: `ws.cso.ie/.../ReadDataset/RIA02/JSON-stat/2.0/en` | None | Free | Official (RTB), live |
+| PSRA Property Price Register | Actual sale prices per address/area. Civictech API `priceregister.civictech.ie/api/v1/residential/sales` (no county filter) + official per-county CSVs `propertypriceregister.ie/.../PPR-{YEAR}-{COUNTY}.csv/%24FILE/...` | None | Free | Official, statutory |
 | Telegram channel | Live asking-price listings as they are floated | Bot token | Free | Real-time, self-reported |
 | Google Gemini (free tier) | Natural-language analysis of the comparison | Provided | Free | Model-dependent |
 | Google Geocoding | Confirms/validates the area of a listing | Provided | Free tier | Utility |
+
+## Verified data facts (current snapshot)
+
+- **HPM09 RPPI, May 2026 (latest month):** National all-residential **+6.2% YoY**; Dublin houses **+4.3%**; Dublin apartments **+6.1%**; NUTS3 houses — Border **+11.8%**, Midland **+13.2%**, West **+5.3%**, Mid-East **+6.4%**, Mid-West **+5.2%**, South-East **+11.1%**, South-West **+4.2%**.
+- **RIA02 RTB rents, 2025:** Dublin €2,159/mo, Cork €1,542, Kildare €1,701, Wicklow €1,730, Meath €1,542, Galway €1,637, Waterford €1,247; Dublin districts e.g. Dublin 4 €2,508, Dublin 8 €1,873, Dublin 15 €1,985, Dublin 24 €2,047.
+- Both endpoints return data via `JSON-stat/2.0/en` and CORS headers permitting `https://axelvibe.github.io`.
 
 ## Verdict delivered to the Designer
 
