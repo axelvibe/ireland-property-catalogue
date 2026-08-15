@@ -22,8 +22,8 @@ import requests
 
 # ----------------------------- CONFIG ----------------------------------
 TELEGRAM_TOKEN = "8907857522:AAEuTdqhKRaQZqJQj7oRocgnhIjzYb94ztQ"
-OPENAI_API_KEY = "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"
-OPENAI_MODEL = "gpt-4o-mini"
+GEMINI_API_KEY = "AQ.Ab8RN6K1gAihniibBmmXejYhyBUo7a7Oi_1q-uqteEpH596XgA"
+GEMINI_MODEL = "gemini-2.5-flash"
 POLL_INTERVAL = 2
 
 TG_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
@@ -101,24 +101,24 @@ def analyse(text):
 
 def ai_assessment(text, facts):
     try:
+        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
         r = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+            url,
             json={
-                "model": OPENAI_MODEL,
-                "temperature": 0.6,
-                "messages": [
-                    {"role": "system",
-                     "content": "You are Eabha, the Ireland Property Catalogue price advisor. "
-                                "Never invent statistics. Use only figures given to you. "
-                                "Reply under 120 words, one short paragraph plus 2-3 bullet takeaways."},
-                    {"role": "user", "content": f"Structured facts:\n{facts}\n\nListing: {text}\n\nAssess it."},
-                ],
+                "systemInstruction": {"parts": [{"text": (
+                    "You are Eabha, the Ireland Property Catalogue price advisor. "
+                    "Never invent statistics. Use only figures given to you. "
+                    "Reply under 120 words, one short paragraph plus 2-3 bullet takeaways.")}]},
+                "contents": [{"role": "user", "parts": [{"text":
+                    f"Structured facts:\n{facts}\n\nListing: {text}\n\nAssess it."}]}],
+                "generationConfig": {"temperature": 0.6, "maxOutputTokens": 400},
             },
-            timeout=20,
+            timeout=25,
         )
         r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"].strip()
+        parts = r.json()["candidates"][0]["content"]["parts"]
+        return "".join(p.get("text", "") for p in parts).strip()
     except Exception:
         return None
 

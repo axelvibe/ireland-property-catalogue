@@ -226,13 +226,15 @@ footer b{color:var(--green)}
 <script>
 /* =====================================================================
    CONFIG  —  ⚠️ SECURITY NOTE: This static site calls APIs directly from
-   the browser, so these keys are visible to anyone who views page source.
-   Acceptable for this hosted demonstration. For production, rotate these
-   keys and proxy calls through a small server (see README "Roadmap").
+   the browser, so API keys here are visible in page source. We use the
+   free Google Gemini tier for the AI layer. For real safety, restrict the
+   Gemini key in Google AI Studio to this site's HTTP referrer
+   (https://axelvibe.github.io/*) so the key is useless anywhere else.
+   Acceptable for this hosted demonstration.
    ===================================================================== */
 const CONFIG = {
-  OPENAI_API_KEY: "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",
-  OPENAI_MODEL: "gpt-4o-mini",
+  GEMINI_API_KEY: "AQ.Ab8RN6K1gAihniibBmmXejYhyBUo7a7Oi_1q-uqteEpH596XgA",
+  GEMINI_MODEL: "gemini-2.5-flash",
   GOOGLE_API_KEY: "AIzaSyDy62QLfysNmGLkV9M-NEsO6hQobFn7fJI",
   TELEGRAM_BOT_TOKEN: "8907857522:AAEuTdqhKRaQZqJQj7oRocgnhIjzYb94ztQ"
 };
@@ -437,19 +439,20 @@ RULES:
 - You are a reality check, not a salesperson. Recommend checking the PSRA Property Price Register for actual sold prices.
 - Reference official anchoring: CSO PxStat RPPI for trends, PSRA Property Price Register for actual sales.`;
 
-async function callOpenAI(system, user){
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+async function callAI(system, user){
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/"+CONFIG.GEMINI_MODEL+":generateContent?key="+CONFIG.GEMINI_API_KEY;
+  const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer "+CONFIG.OPENAI_API_KEY },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: CONFIG.OPENAI_MODEL,
-      temperature: 0.6,
-      messages: [{ role: "system", content: system }, { role: "user", content: user }]
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { temperature: 0.6, maxOutputTokens: 400 }
     })
   });
   if (!res.ok){ const e = await res.json().catch(()=>null); throw new Error(e?.error?.message || "HTTP "+res.status); }
   const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || "";
+  return data?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("").trim() || "";
 }
 
 async function geocode(place){
@@ -495,7 +498,7 @@ async function handle(text){
       `\nWrite a short friendly assessment (under 120 words) explaining the verdict in plain English and giving 2-3 practical takeaways.`
     ].join("\n");
     let prose;
-    try{ prose = await callOpenAI(AI_SYSTEM, prompt); }
+    try{ prose = await callAI(AI_SYSTEM, prompt); }
     catch(e){ prose = localAssessment(f); }
     ty.replaceWith(botBubble(prose));
     scroll();
@@ -514,7 +517,7 @@ async function handle(text){
       `\nAnswer warmly (under 100 words): what does that mean for a buyer, and point them to the PSRA register for exact sales.`
     ].join("\n");
     let prose;
-    try{ prose = await callOpenAI(AI_SYSTEM, prompt); }
+    try{ prose = await callAI(AI_SYSTEM, prompt); }
     catch(e){ prose = `${f.county}’s typical price is around ${fmt(c.typical)}, trending ${c.trend>=0?"up":""} ${Math.abs(c.trend)}% year-on-year. Check the PSRA Property Price Register for exact recent sales in the area you're eyeing.`; }
     ty.replaceWith(botBubble(prose));
     scroll();
@@ -525,7 +528,7 @@ async function handle(text){
   const ty = addTyping();
   const prompt = `User message: "${text}"\n\nThis is an Ireland property/housing question. Answer helpfully (under 120 words) using your own knowledge, but never invent statistics. Reference official sources (CSO, PSRA) where relevant.`;
   let prose;
-  try{ prose = await callOpenAI(AI_SYSTEM, prompt); }
+  try{ prose = await callAI(AI_SYSTEM, prompt); }
   catch(e){ prose = localAssessment({asking:null, county:null, beds:null, type:null}); }
   ty.replaceWith(botBubble(prose));
   scroll();

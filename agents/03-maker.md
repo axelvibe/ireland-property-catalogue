@@ -22,7 +22,7 @@
 | F1 listing parse | Deterministic regex engine: `€`/`asking`/`k` price forms, beds (`2-bed`, `two bed`), 7 property types, 26 counties with aliases |
 | F2 deterministic verdict | Ratio vs. county reference → BELOW (≤88%) / IN LINE (88–112%) / ABOVE (≥112%), with % and € difference |
 | F3 facts card | Instant card: asking vs typical, difference, verdict badge, gradient bar marker, property facts grid |
-| F4 AI assessment | `gpt-4o-mini` writes ≤120-word plain-English interpretation from the computed facts |
+| F4 AI assessment | Google Gemini (`gemini-2.5-flash`, free tier) writes ≤120-word plain-English interpretation from the computed facts |
 | F5 free-form Q&A | County context injected into the prompt; safe fallback when the model is unreachable |
 | F6 county snapshot | Quick "typical price + YoY trend" card per county |
 | F7 location validation | Google Geocoding resolves the stated area → formatted address + lat/lng |
@@ -33,7 +33,7 @@
 
 1. **Hybrid engine.** The verdict is computed **locally** from an embedded official-reference dataset (distilled CSO RPPI / PSRA figures for all 26 counties). The AI only *interprets* — it never decides the verdict. This keeps the core honest, fast, and working even if the API is down or the key is exhausted.
 2. **Graceful degradation everywhere.**
-   - OpenAI fails → locally-generated assessment (still uses the computed facts).
+   - AI unreachable → locally-generated assessment (still uses the computed facts).
    - Geocoding fails → silently skipped, verdict unaffected.
    - No price found → bot asks for the asking price, shows the county snapshot.
 3. **User text is never injected as HTML** — user bubbles are set via `textContent`; only sanitised values enter the cards (XSS-safe).
@@ -42,7 +42,7 @@
 
 ## Honest caveats (no hiding)
 
-- **Embedded API keys are visible in page source.** This is inherent to a static GitHub Pages host with direct browser calls. Fine for a demonstration; the Manager must drive a rotation + proxy plan before real users are involved.
+- **API keys are visible in page source.** This is inherent to a static GitHub Pages host with direct browser calls. Mitigation in place: the AI layer uses the free Google Gemini tier, and the documented practice is to restrict both Gemini and Geocoding keys by HTTP referrer to this site so copied keys are worthless. Fine for a demonstration; restrict before real users are involved.
 - **County reference prices are indicative medians**, not street-level truth. The product says so and points users to the PSRA register for exact addresses.
 - **Live Telegram polling requires a server** (GitHub Pages is static-only). I shipped `tools/telegram_bot.py` as the bridge: run it anywhere (a laptop or any free host), and it answers listings posted in the channel using the same engine.
 

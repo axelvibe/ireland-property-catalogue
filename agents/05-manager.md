@@ -30,7 +30,7 @@
 3. **Graceful degradation** — tested paths for: no price, unknown county, AI unreachable, geocoding down. No dead-ends. PASS.
 4. **Safety** — user input is rendered as text (XSS-safe); no secrets in git history beyond the intended demo keys; no server-side code to misconfigure. PASS.
 5. **Honest-claims positioning** — the regulatory story is real and embedded in the product: *"we deliberately anchor consumer-facing claims to official statistics, not self-reported listing data."* PASS.
-6. **Known limitation, documented** — API keys are visible in source (inherent to static hosting). Rotation + server proxy scheduled; acceptable for demonstration, MUST fix before scaling. OPEN.
+6. **Known limitation, documented** — API keys are visible in source (inherent to static hosting). Mitigation: free Gemini tier + referrer restriction of keys to this site. Acceptable for demonstration; MUST restrict keys before scaling. OPEN.
 
 ## Executive summary — Ireland Property Catalogue
 
@@ -42,7 +42,7 @@
 
 **Differentiation.** Not another listings site. A truth engine layered on top of listings, deliberately anchored to official statistics — an honest, defensible regulatory story and a genuine trust moat.
 
-**Delivery.** Hosted live and accessible at the URL below, backed by the OpenAI API (analysis), Google Geocoding (area validation), and a Telegram bridge script for channel-based use.
+**Delivery.** Hosted live and accessible at the URL below, backed by the free Google Gemini tier (analysis), Google Geocoding (area validation), and a Telegram bridge script for channel-based use.
 
 ## KPIs (first 90 days)
 
@@ -57,7 +57,7 @@
 1. ✅ Deploy to GitHub Pages → live URL verified
 2. ➡️ Run the Communicator's launch plan (thread + 5 community answers)
 3. ➡️ Update the county reference dataset with fresh CSO/PSRA figures (Researcher, monthly)
-4. ➡️ Replace embedded keys with a proxy before real-user scaling
+4. ➡️ Restrict Gemini + Geocoding keys by HTTP referrer (safe for real users)
 5. ➡️ Activate `tools/telegram_bot.py` for the channel
 
 ## Handoff artefact

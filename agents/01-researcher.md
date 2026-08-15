@@ -40,7 +40,7 @@
 | CSO PxStat RPPI | National + regional price index, YoY trends | None | Free | Official |
 | PSRA Property Price Register | Actual sale prices per address/area | None | Free | Official, statutory |
 | Telegram channel | Live asking-price listings as they are floated | Bot token | Free | Real-time, self-reported |
-| OpenAI API | Natural-language analysis of the comparison | Provided | Paid | Model-dependent |
+| Google Gemini (free tier) | Natural-language analysis of the comparison | Provided | Free | Model-dependent |
 | Google Geocoding | Confirms/validates the area of a listing | Provided | Free tier | Utility |
 
 ## Verdict delivered to the Designer

@@ -31,13 +31,19 @@ Pipeline: `Researcher → Designer → Maker → Communicator → Manager` — s
 ## Architecture
 
 - **Single file:** `index.html` (HTML + CSS + JS), no build step, runs on GitHub Pages.
-- **Hybrid engine:** verdicts are computed **deterministically in the browser** from an embedded county reference dataset (distilled CSO/PSRA figures, all 26 counties). The OpenAI model (`gpt-4o-mini`) only writes plain-English interpretation on top of the computed facts — it never decides the verdict.
+- **Hybrid engine:** verdicts are computed **deterministically in the browser** from an embedded county reference dataset (distilled CSO/PSRA figures, all 26 counties). The Gemini model (`gemini-2.5-flash`, free tier) only writes plain-English interpretation on top of the computed facts — it never decides the verdict.
 - **Graceful degradation:** if the AI or Geocoding APIs are unreachable, the verdict and a locally-generated assessment still work.
-- **Services:** OpenAI (analysis), Google Geocoding (area validation), Telegram (listing source).
+- **Services:** Google Gemini (free AI analysis), Google Geocoding (area validation), Telegram (listing source). No paid AI subscription required.
 
-## ⚠️ Important: API keys & security
+## 🔐 API keys & safety
 
-This static site calls OpenAI and Google APIs directly from the browser, so the keys in `CONFIG` inside `index.html` are **visible to anyone who views the page source**. This is fine for a hosted demonstration, but **before real users or any public promotion, rotate those keys and proxy the API calls through a small server** (see Roadmap).
+This static site calls Google's APIs directly from the browser, so the keys in `CONFIG` inside `index.html` are **visible in the page source**. We mitigate this properly:
+
+1. **Free tier** — the AI layer uses Google Gemini (`gemini-2.5-flash`), which has a generous free allowance (~1,500 requests/day, no card).
+2. **Referrer restriction (recommended)** — in [Google AI Studio](https://aistudio.google.com/apikey), restrict the Gemini key to `https://axelvibe.github.io/*`. The key then works **only from this site**, so copying it from the source is useless.
+3. **Deterministic core** — the verdict never depends on the AI, so even a blocked key can't break the product.
+
+The Google Maps/Geocoding key is likewise restrictable by referrer in the Google Cloud Console.
 
 ## Telegram bridge
 
@@ -53,7 +59,7 @@ It listens to your channel, and when someone posts a listing it replies with the
 ## Roadmap
 
 - [x] Single-file chatbot deployed to GitHub Pages
+- [ ] Restrict Gemini + Geocoding keys to this site's referrer (AI Studio / Cloud Console)
 - [ ] Fresh CSO/PSRA figures monthly (Researcher)
-- [ ] Rotate keys + server proxy before scaling
 - [ ] Live Telegram bot hosting
 - [ ] Auctioneer "official-data partner" pilot
