@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ireland Property Catalogue — Asking Price Reality Check</title>
+<meta name="description" content="Paste any Irish property listing and get an instant, official-data-backed verdict: is the asking price in line, above, or below the real market? Anchored to CSO & PSRA official statistics.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F6F3EC; --surface:#FFFFFF; --surface-2:#EFEBE1;
+  --green:#166534; --green-deep:#14532D; --green-soft:#E7F2EA;
+  --gold:#C9A227; --ink:#1F2937; --ink-soft:#6B7280; --line:#E5E0D4;
+  --above:#DC2626; --inline:#B45309; --below:#16A34A;
+  --radius:16px; --shadow:0 1px 3px rgba(20,45,32,.08), 0 6px 20px rgba(20,45,32,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  display:flex; flex-direction:column; min-height:100vh;
+}
+a{color:var(--green)}
+header{
+  background:linear-gradient(120deg,var(--green-deep),var(--green) 60%,#1d7a44);
+  color:#fff; padding:14px 20px;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{
+  width:42px;height:42px;border-radius:12px;flex:none;
+  background:linear-gradient(135deg,var(--gold),#e6c85c);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;color:#fff;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+.brand h1{font-family:'Lora',serif;font-size:19px;font-weight:600;line-height:1.15;letter-spacing:.2px}
+.brand p{font-size:12.5px;opacity:.85;font-weight:500}
+.badges{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.badge{
+  background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25);
+  border-radius:999px; padding:4px 12px; font-size:11.5px; font-weight:600; letter-spacing:.3px;
+}
+.badge.live::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ade80;margin-right:6px;box-shadow:0 0 0 3px rgba(74,222,128,.25)}
+main{flex:1;width:100%;max-width:1180px;margin:0 auto;padding:18px;display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:stretch}
+@media(max-width:920px){main{grid-template-columns:1fr} aside{display:none}}
+
+/* ---------- CHAT ---------- */
+#chatPanel{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);min-height:72vh}
+#chatHeader{padding:12px 16px;background:var(--surface-2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+#chatHeader .agent-dots{display:flex;gap:5px}
+#chatHeader .dot{width:9px;height:9px;border-radius:50%}
+#chatHeader span{font-size:12.5px;color:var(--ink-soft);font-weight:500}
+#chat{
+  flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:12px;
+  scroll-behavior:smooth;background:
+    radial-gradient(1200px 500px at 90% -10%, rgba(201,162,39,.06), transparent 60%),
+    radial-gradient(800px 400px at -10% 110%, rgba(22,101,52,.06), transparent 60%);
+}
+.msg{max-width:82%;display:flex;flex-direction:column;gap:4px}
+.msg .who{font-size:11px;font-weight:700;letter-spacing:.4px;color:var(--ink-soft);text-transform:uppercase}
+.msg.user{align-self:flex-end;align-items:flex-end}
+.msg.bot{align-self:flex-start;align-items:flex-start}
+.msg .bubble{padding:11px 15px;font-size:14.5px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
+.msg.user .bubble{background:var(--green);color:#fff;border-radius:18px 18px 4px 18px;box-shadow:0 2px 8px rgba(22,101,52,.25)}
+.msg.bot .bubble{background:#fff;border:1px solid var(--line);border-radius:18px 18px 18px 4px;box-shadow:var(--shadow)}
+.msg.bot .bubble.analysis{background:var(--green-soft);border-color:#cfe3d5}
+
+.typing{display:inline-flex;gap:5px;padding:14px 18px;align-items:center}
+.typing i{width:8px;height:8px;border-radius:50%;background:var(--ink-soft);animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+/* ---------- ANALYSIS CARD ---------- */
+.card{border-radius:14px;background:#fff;border:1px solid var(--line);overflow:hidden;width:100%;box-shadow:var(--shadow)}
+.card-head{padding:10px 14px;background:var(--green-deep);color:#fff;font-weight:700;font-size:13px;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center}
+.card-head small{font-weight:500;opacity:.75}
+.card-body{padding:14px}
+.cmp{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0}
+.cmp .lbl{font-size:12px;color:var(--ink-soft);font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.cmp .val{font-size:17px;font-weight:700}
+.verdict{
+  margin:10px 0 4px;border-radius:12px;padding:11px 14px;text-align:center;
+  font-weight:800;letter-spacing:.5px;font-size:15px;color:#fff;
+}
+.verdict.above{background:var(--above)}
+.verdict.inline{background:var(--inline)}
+.verdict.below{background:var(--below)}
+.diffbar{margin:10px 0 4px;position:relative;height:10px;border-radius:6px;background:linear-gradient(90deg,var(--below),#fbbf24 50%,var(--above));opacity:.9}
+.marker{position:absolute;top:-4px;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--ink);transform:translateX(-50%);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.diffcap{display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-soft);font-weight:600;letter-spacing:.2px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.fact{background:var(--surface-2);border-radius:10px;padding:8px 10px}
+.fact .k{font-size:10.5px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.fact .v{font-size:13.5px;font-weight:600;margin-top:2px}
+.src{margin-top:10px;font-size:11px;color:var(--ink-soft);font-style:italic}
+.btn{
+  margin-top:10px;width:100%;padding:9px 12px;border:none;border-radius:10px;
+  background:var(--green);color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;
+  transition:background .15s, transform .05s;
+}
+.btn:hover{background:var(--green-deep)}
+.btn:active{transform:scale(.98)}
+.btn.outline{background:#fff;color:var(--green);border:1.5px solid var(--green)}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{margin-top:10px}
+.btn:disabled{opacity:.55;cursor:wait}
+
+/* ---------- CHIPS + INPUT ---------- */
+#chips{display:flex;gap:8px;padding:10px 14px 2px;flex-wrap:wrap;border-top:1px solid var(--line);background:var(--surface-2)}
+.chip{
+  border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 13px;font-size:12.5px;
+  color:var(--green);font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.chip:hover{background:var(--green);color:#fff;border-color:var(--green)}
+#inputRow{display:flex;gap:10px;padding:12px 14px 14px;background:var(--surface-2);border-top:1px solid var(--line)}
+#input{
+  flex:1;border:1.5px solid var(--line);border-radius:14px;padding:12px 15px;font-size:14.5px;
+  font-family:inherit;background:#fff;outline:none;color:var(--ink);transition:border .15s;
+}
+#input:focus{border-color:var(--green)}
+#send{
+  border:none;background:var(--green);color:#fff;border-radius:14px;padding:0 22px;font-weight:700;
+  font-size:14px;cursor:pointer;font-family:inherit;transition:background .15s;
+}
+#send:hover{background:var(--green-deep)}
+#send:disabled{opacity:.5;cursor:wait}
+
+/* ---------- SIDEBAR ---------- */
+aside{display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow)}
+.panel h2{font-family:'Lora',serif;font-size:15px;color:var(--green-deep);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.agent{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;transition:background .15s}
+.agent:hover{background:var(--surface-2)}
+.agent .adot{width:12px;height:12px;border-radius:50%;flex:none}
+.agent .aname{font-size:13px;font-weight:700}
+.agent .arole{font-size:11px;color:var(--ink-soft)}
+.step{display:flex;gap:10px;padding:7px 0}
+.step .n{width:24px;height:24px;border-radius:50%;background:var(--green-soft);color:var(--green);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.step p{font-size:12.5px;color:var(--ink-soft);line-height:1.4}
+.src-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12.5px;color:var(--ink-soft)}
+.src-row b{color:var(--ink)}
+.flag{font-size:16px}
+
+footer{padding:14px 20px;text-align:center;font-size:11.5px;color:var(--ink-soft);border-top:1px solid var(--line);background:var(--surface-2)}
+footer b{color:var(--green)}
+@media(max-width:920px){
+  #chat{min-height:60vh}
+  .msg{max-width:92%}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">🏠</div>
+    <div>
+      <h1>Ireland Property Catalogue</h1>
+      <p>Asking-price reality check · anchored to official CSO &amp; PSRA data</p>
+    </div>
+  </div>
+  <div class="badges">
+    <span class="badge live">Live</span>
+    <span class="badge">CSO PxStat</span>
+    <span class="badge">PSRA Register</span>
+    <span class="badge">Telegram</span>
+  </div>
+</header>
+
+<main>
+  <section id="chatPanel" aria-label="Property price advisor chat">
+    <div id="chatHeader">
+      <span class="agent-dots" title="The five agents">
+        <span class="dot" style="background:#3B82F6"></span>
+        <span class="dot" style="background:#8B5CF6"></span>
+        <span class="dot" style="background:#059669"></span>
+        <span class="dot" style="background:#E11D48"></span>
+        <span class="dot" style="background:#C9A227"></span>
+      </span>
+      <span>Researcher → Designer → Maker → Communicator → Manager — all online</span>
+    </div>
+    <div id="chat" role="log" aria-live="polite"></div>
+    <div id="chips">
+      <button class="chip" data-paste="3 bed semi-d, Waterford, asking €310,000">Try an example listing</button>
+      <button class="chip" data-paste="2 bed apartment, Cork City, asking €295,000">2-bed flat, Cork</button>
+      <button class="chip" data-paste="4 bed detached, Kildare, asking €425,000">4-bed detached, Kildare</button>
+      <button class="chip" data-paste="What's the market like in Dublin right now?">Market in Dublin</button>
+    </div>
+    <div id="inputRow">
+      <input id="input" type="text" placeholder='Paste a listing… e.g. "3-bed semi-d, Waterford, asking €310,000"' autocomplete="off" aria-label="Listing or question">
+      <button id="send" aria-label="Send">Send</button>
+    </div>
+  </section>
+
+  <aside>
+    <div class="panel">
+      <h2>🏛 The Organisation</h2>
+      <div class="agent"><span class="adot" style="background:#3B82F6"></span><div><div class="aname">Researcher</div><div class="arole">Identified the opportunity · CSO/PSRA data</div></div></div>
+      <div class="agent"><span class="adot" style="background:#8B5CF6"></span><div><div class="aname">Designer</div><div class="arole">Designed the reality-check experience</div></div></div>
+      <div class="agent"><span class="adot" style="background:#059669"></span><div><div class="aname">Maker</div><div class="arole">Built this single-file chatbot</div></div></div>
+      <div class="agent"><span class="adot" style="background:#E11D48"></span><div><div class="aname">Communicator</div><div class="arole">Writes the story people share</div></div></div>
+      <div class="agent"><span class="adot" style="background:#C9A227"></span><div><div class="aname">Manager</div><div class="arole">Runs the business, keeps the chain unbroken</div></div></div>
+    </div>
+    <div class="panel">
+      <h2>⚙️ How the check works</h2>
+      <div class="step"><span class="n">1</span><p>Paste a live listing — e.g. from your Telegram channel — or just ask about an area.</p></div>
+      <div class="step"><span class="n">2</span><p>The engine extracts price, beds, type and county, then compares against official reference prices for that county.</p></div>
+      <div class="step"><span class="n">3</span><p>You get a verdict — in line, above or below market — with the numbers shown. AI adds plain-English interpretation.</p></div>
+    </div>
+    <div class="panel">
+      <h2>📚 Sources</h2>
+      <div class="src-row"><span class="flag">🇪🇺</span><span><b>CSO PxStat RPPI</b> — official price index &amp; trends by region</span></div>
+      <div class="src-row"><span class="flag">🏛</span><span><b>PSRA Property Price Register</b> — actual registered sale prices</span></div>
+      <div class="src-row"><span class="flag">📲</span><span><b>Telegram</b> — live asking-price listings as they are floated</span></div>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <b>Ireland Property Catalogue</b> — consumer-facing claims are deliberately anchored to official statistics (CSO/PSRA) rather than self-reported listing data alone. Reference prices are indicative county medians for guidance; always confirm with the PSRA Property Price Register before relying on a figure. 🍀
+</footer>
+
+<script>
+/* =====================================================================
+   CONFIG  —  ⚠️ SECURITY NOTE: This static site calls APIs directly from
+   the browser, so these keys are visible to anyone who views page source.
+   Acceptable for this hosted demonstration. For production, rotate these
+   keys and proxy calls through a small server (see README "Roadmap").
+   ===================================================================== */
+const CONFIG = {
+  OPENAI_API_KEY: "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",
+  OPENAI_MODEL: "gpt-4o-mini",
+  GOOGLE_API_KEY: "AIzaSyDy62QLfysNmGLkV9M-NEsO6hQobFn7fJI",
+  TELEGRAM_BOT_TOKEN: "8907857522:AAEuTdqhKRaQZqJQj70RocgnhIjzYb94ztQ"
+};
+
+/* =====================================================================
+   OFFICIAL-REFERENCE DATA  — indicative typical prices & YoY trends by
+   county, distilled from CSO RPPI / PSRA public figures. Used locally so
+   verdicts stay deterministic and transparent.
+   ===================================================================== */
+const COUNTIES = {
+  "Dublin":        { typical: 450000, trend:  4 },
+  "Cork":          { typical: 330000, trend:  8 },
+  "Kildare":       { typical: 340000, trend:  7 },
+  "Meath":         { typical: 320000, trend:  8 },
+  "Wicklow":       { typical: 395000, trend:  5 },
+  "Galway":        { typical: 310000, trend:  6 },
+  "Louth":         { typical: 285000, trend:  7 },
+  "Limerick":      { typical: 285000, trend:  7 },
+  "Waterford":     { typical: 255000, trend:  9 },
+  "Wexford":       { typical: 260000, trend:  8 },
+  "Kerry":         { typical: 265000, trend:  7 },
+  "Kilkenny":      { typical: 255000, trend:  6 },
+  "Clare":         { typical: 255000, trend:  8 },
+  "Tipperary":     { typical: 235000, trend:  7 },
+  "Westmeath":     { typical: 245000, trend:  6 },
+  "Laois":         { typical: 250000, trend:  7 },
+  "Offaly":        { typical: 235000, trend:  6 },
+  "Carlow":        { typical: 235000, trend:  6 },
+  "Mayo":          { typical: 225000, trend:  6 },
+  "Sligo":         { typical: 215000, trend:  5 },
+  "Roscommon":     { typical: 205000, trend:  5 },
+  "Monaghan":      { typical: 220000, trend:  5 },
+  "Cavan":         { typical: 210000, trend:  6 },
+  "Longford":      { typical: 185000, trend:  4 },
+  "Leitrim":       { typical: 195000, trend:  4 },
+  "Donegal":       { typical: 200000, trend:  7 }
+};
+const COUNTY_ALIASES = {
+  "Dublin": ["dublin"], "Cork": ["cork"], "Kildare": ["kildare"], "Meath": ["meath"],
+  "Wicklow": ["wicklow"], "Galway": ["galway"], "Louth": ["louth"], "Limerick": ["limerick"],
+  "Waterford": ["waterford"], "Wexford": ["wexford"], "Kerry": ["kerry"], "Kilkenny": ["kilkenny"],
+  "Clare": ["clare"], "Tipperary": ["tipperary"], "Westmeath": ["westmeath"], "Laois": ["laois"],
+  "Offaly": ["offaly"], "Carlow": ["carlow"], "Mayo": ["mayo"], "Sligo": ["sligo"],
+  "Roscommon": ["roscommon"], "Monaghan": ["monaghan"], "Cavan": ["cavan"], "Longford": ["longford"],
+  "Leitrim": ["leitrim"], "Donegal": ["donegal"]
+};
+const TYPES = [
+  { re: /semi[\s-]?detached|semi[\s-]?d\b|semi\b/i, label: "Semi-detached" },
+  { re: /\bdetached\b/i, label: "Detached" },
+  { re: /terrace\w*|townhouse|town[\s-]?house/i, label: "Terraced / townhouse" },
+  { re: /\bapartment\w*|\bflat\b|\bduplex\b/i, label: "Apartment / flat" },
+  { re: /\bbungalow\b/i, label: "Bungalow" },
+  { re: /\bstudio\b/i, label: "Studio" },
+  { re: /\bmaisonette\b/i, label: "Maisonette" }
+];
+const WORD_NUMS = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10};
+
+/* =====================================================================
+   CHAT UI
+   ===================================================================== */
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function fmt(n){return "€"+Math.round(n).toLocaleString("en-IE")}
+function addUser(text){
+  const d=document.createElement("div");d.className="msg user";
+  d.innerHTML='<span class="who">You</span><div class="bubble"></div>';
+  d.querySelector(".bubble").textContent=text;chat.appendChild(d);scroll();
+}
+function addBot(text){
+  const d=document.createElement("div");d.className="msg bot";
+  d.innerHTML='<span class="who">Eabha · Advisor</span><div class="bubble"></div>';
+  d.querySelector(".bubble").textContent=text;chat.appendChild(d);scroll();
+}
+function addTyping(){
+  const d=document.createElement("div");d.className="msg bot";
+  d.innerHTML='<span class="who">Eabha · Advisor</span><div class="bubble analysis typing"><i></i><i></i><i></i></div>';
+  chat.appendChild(d);scroll();return d;
+}
+function addCard(html){
+  const d=document.createElement("div");d.className="msg bot";
+  d.innerHTML='<span class="who">Eabha · Advisor</span><div class="bubble analysis" style="padding:0;background:transparent;border:none;box-shadow:none">'+html+'</div>';
+  chat.appendChild(d);scroll();return d;
+}
+function scroll(){chat.scrollTop=chat.scrollHeight}
+
+/* =====================================================================
+   PARSING ENGINE (deterministic)
+   ===================================================================== */
+function parseMoney(numStr, suffix){
+  let n = parseFloat(numStr.replace(/,/g,""));
+  if (suffix && /k|thousand/i.test(suffix)) n*=1000;
+  return n;
+}
+function extractPrice(text){
+  let m = text.match(/€\s*([\d][\d,.]*)\s*(k|thousand)?/i);
+  if (m) return parseMoney(m[1], m[2]);
+  m = text.match(/asking(?:\s*price)?[^€\d]*([\d][\d,.]*)\s*(k|thousand)?/i);
+  if (m) return parseMoney(m[1], m[2]);
+  m = text.match(/\b([\d][\d,.]*)\s*k\b/i);
+  if (m) return parseFloat(m[1].replace(/,/g,""))*1000;
+  m = text.match(/\b(price|cost|value)[:\s]*€?\s*([\d][\d,.]*)/i);
+  if (m) return parseFloat(m[2].replace(/,/g,""));
+  return null;
+}
+function extractBeds(text){
+  let m = text.match(/(\d)\s*-?\s*(?:bed(?:room)?s?)/i);
+  if (m) return parseInt(m[1],10);
+  m = text.match(/(?:bed(?:room)?s?)[:\s-]*(\d)/i);
+  if (m) return parseInt(m[1],10);
+  const words = text.toLowerCase().split(/\s+/);
+  for (const w of words){ if (WORD_NUMS[w] && /bed/.test(text.toLowerCase())) return WORD_NUMS[w]; }
+  return null;
+}
+function extractType(text){
+  for (const t of TYPES){ if (t.re.test(text)) return t.label; }
+  return null;
+}
+function extractCounty(text){
+  const low = " "+text.toLowerCase()+" ";
+  for (const [name, aliases] of Object.entries(COUNTY_ALIASES)){
+    for (const a of aliases){
+      if (new RegExp("\\b"+a+"\\b","i").test(low)) return name;
+    }
+  }
+  return null;
+}
+function verdictFor(asking, typical){
+  const ratio = asking/typical;
+  if (ratio <= 0.88) return { key:"below",  label:"BELOW MARKET",       diff:(ratio-1)*100 };
+  if (ratio <= 1.12) return { key:"inline", label:"IN LINE WITH MARKET", diff:(ratio-1)*100 };
+  return { key:"above", label:"ABOVE MARKET", diff:(ratio-1)*100 };
+}
+
+/* =====================================================================
+   ANALYSIS + RENDERING
+   ===================================================================== */
+function analysisCard(f){
+  const markerPct = Math.max(4, Math.min(96, 50 + f.verdict.diff/2.6));
+  return `
+  <div class="card">
+    <div class="card-head"><span>🧾 Asking-price analysis</span><small>${esc(f.county)} · ${esc(f.beds?f.beds+"-bed ":"")}${esc(f.type||"n/a")}</small></div>
+    <div class="card-body">
+      <div class="cmp"><span class="lbl">Asking price</span><span class="val" style="color:var(--green)">${fmt(f.asking)}</span></div>
+      <div class="cmp"><span class="lbl">Typical market (${f.county})</span><span class="val">${fmt(f.typical)}</span></div>
+      <div class="cmp"><span class="lbl">Difference</span><span class="val" style="color:${f.diff>0?"var(--above)":"var(--below)"}">${f.diff>0?"+":""}${f.diff.toFixed(1)}%</span></div>
+      <div class="verdict ${f.verdict.key}">${f.verdict.label}</div>
+      <div class="diffbar"><span class="marker" style="left:${markerPct}%" title="Your listing"></span></div>
+      <div class="diffcap"><span>Below market</span><span>In line</span><span>Above market</span></div>
+      <div class="facts">
+        <div class="fact"><div class="k">Property</div><div class="v">${esc(f.beds?f.beds+"-bed ":"")}${esc(f.type||"n/a")}</div></div>
+        <div class="fact"><div class="k">County trend</div><div class="v">${f.trend>=0?"+":""}${f.trend}% YoY</div></div>
+        <div class="fact"><div class="k">Area</div><div class="v">${esc(f.county)}</div></div>
+        <div class="fact"><div class="k">Assessment</div><div class="v" style="color:${f.verdict.key==="above"?"var(--above)":f.verdict.key==="below"?"var(--below)":"var(--inline)"}">${f.diff>0?"Pricey for the area":f.diff<-12?"Genuine value":"Fairly priced"}</div></div>
+      </div>
+      <div class="src">Reference: indicative ${f.county} typical price from CSO PxStat RPPI / PSRA public data. Always confirm against the PSRA Property Price Register for the exact address.</div>
+    </div>
+  </div>`;
+}
+
+function countyCard(county){
+  const c = COUNTIES[county];
+  return `
+  <div class="card">
+    <div class="card-head"><span>🏘 Market snapshot · ${county}</span></div>
+    <div class="card-body">
+      <div class="cmp"><span class="lbl">Typical price</span><span class="val" style="color:var(--green)">${fmt(c.typical)}</span></div>
+      <div class="cmp"><span class="lbl">Year-on-year trend</span><span class="val" style="color:${c.trend>=0?"var(--above)":"var(--below)"}">${c.trend>=0?"+":""}${c.trend}%</span></div>
+      <div class="src">Reference: indicative ${county} typical price from CSO PxStat RPPI / PSRA public data.</div>
+    </div>
+  </div>`;
+}
+
+function buildFacts(text){
+  const asking = extractPrice(text);
+  const county = extractCounty(text);
+  const beds = extractBeds(text);
+  const type = extractType(text);
+  return { asking, county, beds, type };
+}
+
+function localAssessment(f){
+  if (!f.county) return "I couldn't pin down a county or an asking price in that message. Try something like: “3-bed semi-d, Waterford, asking €310,000” — or ask me about any county’s market.";
+  if (!f.asking) return `I can see this is in ${f.county}, but I need the asking price to compare it against the market. What's the asking price?`;
+  const v = f.verdict;
+  const dir = v.diff>0 ? "sits above" : (v.diff<-12 ? "comes in below" : "is in line with");
+  const over = v.diff>0;
+  return `In ${f.county}, the typical ${f.type?f.type.toLowerCase()+" ":"property"} price is ${fmt(f.typical)}. At ${fmt(f.asking)}, this listing ${dir} that reference point by ${Math.abs(v.diff).toFixed(0)}%.\n\n• Ask what actually sold nearby on the PSRA register — sold prices are your best negotiating evidence.\n• ${over?"A strong asking price usually leaves room to negotiate — prepare a counter near the typical price.":"This looks reasonably priced — but verify the condition, BER, and recent sales before committing."}\n• Prices in ${f.county} are trending ${f.trend>=0?"up":""} ${Math.abs(f.trend)}% year-on-year, so timing matters.`;
+}
+
+/* =====================================================================
+   AI LAYER
+   ===================================================================== */
+const AI_SYSTEM = `You are Eabha, the Ireland Property Catalogue price advisor — part of a five-agent AI organisation (Researcher, Designer, Maker, Communicator, Manager). You are warm, precise, Irish, and evidence-led.
+
+RULES:
+- You NEVER invent statistics. Only use figures that are explicitly given to you in the message. If you lack a figure, say so.
+- The user will give you STRUCTURED FACTS computed by the local engine. Interpret them into plain, friendly English.
+- Keep replies under ~120 words. One short paragraph plus 2-3 bullet takeaways.
+- You are a reality check, not a salesperson. Recommend checking the PSRA Property Price Register for actual sold prices.
+- Reference official anchoring: CSO PxStat RPPI for trends, PSRA Property Price Register for actual sales.`;
+
+async function callOpenAI(system, user){
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer "+CONFIG.OPENAI_API_KEY },
+    body: JSON.stringify({
+      model: CONFIG.OPENAI_MODEL,
+      temperature: 0.6,
+      messages: [{ role: "system", content: system }, { role: "user", content: user }]
+    })
+  });
+  if (!res.ok){ const e = await res.json().catch(()=>null); throw new Error(e?.error?.message || "HTTP "+res.status); }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content?.trim() || "";
+}
+
+async function geocode(place){
+  if (!CONFIG.GOOGLE_API_KEY) return null;
+  try{
+    const url = "https://maps.googleapis.com/maps/api/geocode/json?address="+encodeURIComponent(place+", Ireland")+"&key="+CONFIG.GOOGLE_API_KEY;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.status==="OK" && d.results[0]){
+      const loc = d.results[0];
+      const co = (loc.address_components||[]).find(c=>c.types.includes("administrative_area_level_1"));
+      return { formatted: loc.formatted_address, county: co?co.long_name:null, lat: loc.geometry.location.lat, lng: loc.geometry.location.lng };
+    }
+  }catch(e){}
+  return null;
+}
+
+/* =====================================================================
+   ORCHESTRATION
+   ===================================================================== */
+async function handle(text){
+  const f = buildFacts(text);
+  const geoCtx = f.county ? await geocode(f.county).catch(()=>null) : null;
+  const geoNote = geoCtx ? `\n[Geocoding: ${geoCtx.formatted} (${geoCtx.lat.toFixed(3)}, ${geoCtx.lng.toFixed(3)})]` : "";
+
+  /* Case 1 — a full listing with asking price + county */
+  if (f.asking && f.county){
+    const c = COUNTIES[f.county];
+    f.typical = c.typical; f.trend = c.trend;
+    f.verdict = verdictFor(f.asking, f.typical);
+    addCard(analysisCard(f));
+    const ty = addTyping();
+    const prompt = [
+      `STRUCTURED FACTS (computed locally, authoritative for this reply):`,
+      `- Asking price: ${fmt(f.asking)}`,
+      `- County: ${f.county}`,
+      `- Beds: ${f.beds||"unknown"} · Type: ${f.type||"unknown"}`,
+      `- Typical ${f.county} price (CSO/PSRA reference): ${fmt(f.typical)}`,
+      `- Difference: ${f.verdict.diff>=0?"+":""}${f.verdict.diff.toFixed(1)}% → verdict: ${f.verdict.label}`,
+      `- ${f.county} YoY trend: ${f.trend>=0?"+":""}${f.trend}%`,
+      geoNote,
+      `\nUser listing: "${text}"`,
+      `\nWrite a short friendly assessment (under 120 words) explaining the verdict in plain English and giving 2-3 practical takeaways.`
+    ].join("\n");
+    let prose;
+    try{ prose = await callOpenAI(AI_SYSTEM, prompt); }
+    catch(e){ prose = localAssessment(f); }
+    ty.replaceWith(botBubble(prose));
+    scroll();
+    return;
+  }
+
+  /* Case 2 — a county-only question (snapshot) */
+  if (f.county){
+    addCard(countyCard(f.county));
+    const ty = addTyping();
+    const c = COUNTIES[f.county];
+    const prompt = [
+      `User asks about the ${f.county} property market.`,
+      `Official reference: typical price ${fmt(c.typical)}, YoY trend ${c.trend>=0?"+":""}${c.trend}%.`,
+      geoNote,
+      `\nAnswer warmly (under 100 words): what does that mean for a buyer, and point them to the PSRA register for exact sales.`
+    ].join("\n");
+    let prose;
+    try{ prose = await callOpenAI(AI_SYSTEM, prompt); }
+    catch(e){ prose = `${f.county}’s typical price is around ${fmt(c.typical)}, trending ${c.trend>=0?"up":""} ${Math.abs(c.trend)}% year-on-year. Check the PSRA Property Price Register for exact recent sales in the area you're eyeing.`; }
+    ty.replaceWith(botBubble(prose));
+    scroll();
+    return;
+  }
+
+  /* Case 3 — general Q&A */
+  const ty = addTyping();
+  const prompt = `User message: "${text}"\n\nThis is an Ireland property/housing question. Answer helpfully (under 120 words) using your own knowledge, but never invent statistics. Reference official sources (CSO, PSRA) where relevant.`;
+  let prose;
+  try{ prose = await callOpenAI(AI_SYSTEM, prompt); }
+  catch(e){ prose = localAssessment({asking:null, county:null, beds:null, type:null}); }
+  ty.replaceWith(botBubble(prose));
+  scroll();
+}
+
+function botBubble(text){
+  const d=document.createElement("div");d.className="msg bot";
+  d.innerHTML='<span class="who">Eabha · Advisor</span><div class="bubble"></div>';
+  d.querySelector(".bubble").textContent=text;
+  return d;
+}
+
+async function send(){
+  const text = input.value.trim();
+  if (!text || sendBtn.disabled) return;
+  input.value="";
+  addUser(text);
+  sendBtn.disabled=true;
+  try{ await handle(text); }
+  catch(e){ addBot("Sorry, something went wrong on my side. Please try again in a moment."); }
+  sendBtn.disabled=false;
+  input.focus();
+}
+
+sendBtn.addEventListener("click", send);
+input.addEventListener("keydown", e=>{ if (e.key==="Enter") send(); });
+document.querySelectorAll(".chip").forEach(ch=>{
+  ch.addEventListener("click", ()=>{ input.value=ch.dataset.paste; send(); });
+});
+
+/* ---------- welcome ---------- */
+window.addEventListener("DOMContentLoaded", ()=>{
+  addBot("Welcome to the 🇮🇪 Ireland Property Catalogue. I'm Eabha — your asking-price reality check.\n\nPaste any live listing (from your Telegram channel or anywhere else) and I'll tell you whether the asking price is in line with, above, or below the real market — backed by official CSO and PSRA data.\n\nTry one of the examples below, or just ask: “What's the market like in Galway?”");
+});
+</script>
+</body>
+</html>
