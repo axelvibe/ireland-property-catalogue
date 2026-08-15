@@ -21,8 +21,8 @@ import time
 import requests
 
 # ----------------------------- CONFIG ----------------------------------
-TELEGRAM_TOKEN = "8907857522:AAEuTdqhKRaQZqJQj70RocgnhIjzYb94ztQ"
-OPENAI_API_KEY = "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"
+TELEGRAM_TOKEN = "8907857522:AAEuTdqhKRaQZqJQj7oRocgnhIjzYb94ztQ"
+OPENAI_API_KEY = "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"
 OPENAI_MODEL = "gpt-4o-mini"
 POLL_INTERVAL = 2
 
